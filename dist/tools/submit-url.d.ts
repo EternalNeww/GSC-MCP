@@ -1,13 +1,13 @@
 interface SubmitResult {
     url: string;
-    type: string;
+    type: "URL_UPDATED";
     notifyTime: string | null;
     success: boolean;
     error: string | null;
     note: string;
 }
-export declare function submitUrl(url: string, action?: "URL_UPDATED" | "URL_DELETED"): Promise<SubmitResult>;
-export declare function submitBatch(urls: string[], action?: "URL_UPDATED" | "URL_DELETED"): Promise<{
+export declare function submitUrl(url: string): Promise<SubmitResult>;
+export declare function submitBatch(urls: string[]): Promise<{
     results: SubmitResult[];
     summary: {
         total: number;

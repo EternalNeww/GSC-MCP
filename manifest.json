@@ -3,8 +3,8 @@
   "name": "suganthan-gsc-mcp",
   "display_name": "Suganthan's GSC MCP",
   "version": "2.5.1",
-  "description": "Ask Claude real questions about your Google Search Console data. 28 SEO analysis tools, local and private.",
-  "long_description": "A Google Search Console MCP server that answers questions, not API rows: quick win keywords, traffic drops, content decay, cannibalisation, CTR benchmarks, multi site dashboards, and a full image search suite with an on-page image audit. Free and open source. Runs entirely on your machine: your data goes straight from this computer to Google and nothing passes through anyone else's servers.",
+  "description": "Ask Claude real questions about your Google Search Console data. SEO analysis tools, local and private. TradyList fork: host-locked submissions.",
+  "long_description": "A Google Search Console MCP server that answers questions, not API rows: quick win keywords, traffic drops, content decay, cannibalisation, CTR benchmarks, multi site dashboards, and image search analytics. This fork does not fetch arbitrary URLs, write reports to disk, or request de-indexing. URL and sitemap submission are limited to allowlisted hosts. Runs entirely on your machine: your data goes straight from this computer to Google and nothing passes through anyone else's servers.",
   "author": {
     "name": "Suganthan Mohanadasan",
     "email": "sugan@suganthan.com",
@@ -47,7 +47,7 @@
     "access_level": {
       "type": "string",
       "title": "Access level",
-      "description": "readonly (recommended) or full. Full adds sitemap and URL submission tools.",
+      "description": "readonly (recommended) or submit. Submit adds Indexing API URL_UPDATED and sitemap submission. full is an alias of submit.",
       "default": "readonly",
       "required": false
     },

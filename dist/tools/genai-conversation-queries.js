@@ -50,6 +50,7 @@ const RE = {
     pasted: new RegExp(PASTED_SRC),
 };
 function classifyQuery(query) {
+    // Fixed patterns only. The query string is untrusted text and is never compiled, evaluated, or fetched.
     const q = query.toLowerCase().trim();
     const words = q.split(/ +/).length;
     if (RE.artefact.test(q))

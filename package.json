@@ -1,7 +1,7 @@
 {
   "name": "suganthan-gsc-mcp",
   "version": "2.5.1",
-  "description": "Google Search Console MCP server for Claude. 28 SEO analysis tools including quick wins, traffic drops, content decay, cannibalisation, CTR opportunities, multi-site dashboards, and a full image-search suite (image keyword overview, image quick wins, web vs image comparison, image pages overview, image keyword trends, image impressions-no-clicks, image content decay). Generative AI conversation-query detection (v2.4). OAuth and service account support.",
+  "description": "Google Search Console MCP server for Claude. SEO analysis tools including quick wins, traffic drops, content decay, cannibalisation, CTR opportunities, multi-site dashboards, and image-search analytics (image keyword overview, image quick wins, web vs image comparison, image pages overview, image keyword trends, image impressions-no-clicks, image content decay). Generative AI conversation-query detection. TradyList fork: host-locked URL_UPDATED and sitemap submission. OAuth and service account support.",
   "main": "dist/index.js",
   "bin": {
     "suganthan-gsc-mcp": "dist/index.js"
@@ -17,7 +17,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "npm run build && node --test tests/*.test.cjs"
   },
   "keywords": [
     "mcp",
@@ -29,17 +30,14 @@
   "author": "Suganthan Mohanadasan",
   "license": "Apache-2.0",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "exifr": "^7.1.3",
-    "googleapis": "^176.0.0",
-    "image-size": "^2.0.2",
-    "node-html-parser": "^9.0.1",
-    "open": "^10.1.0",
-    "zod": "^3.24.0"
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "googleapis": "176.0.0",
+    "open": "10.2.0",
+    "zod": "3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "@types/node": "22.19.15",
+    "typescript": "5.9.3"
   },
   "files": [
     "dist",

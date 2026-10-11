@@ -52,6 +52,7 @@ const os = __importStar(require("os"));
 const path = __importStar(require("path"));
 const readline = __importStar(require("node:readline/promises"));
 const child_process_1 = require("child_process");
+const allowlist_js_1 = require("./allowlist.js");
 const oauth_js_1 = require("./oauth.js");
 const embedded_client_js_1 = require("./embedded-client.js");
 const USAGE = `
@@ -63,8 +64,9 @@ connection works, and writes the config for Claude Desktop or Claude Code.
 Options:
   --client <target>   Where to install: desktop, code, both, or print
                       (print shows the JSON without writing anything)
-  --scopes <tier>     readonly (recommended) or full
-                      (full adds sitemap submission and the Indexing API)
+  --scopes <tier>     readonly (recommended) or submit
+                      (submit adds Indexing API URL_UPDATED and sitemap submission;
+                      full is accepted as an alias of submit)
   --site <property>   Default GSC property, e.g. sc-domain:yoursite.com
   --secrets <path>    Path to your own OAuth client secrets JSON file
   --reauth            Discard the cached token and sign in again
@@ -101,10 +103,12 @@ function parseArgs(argv) {
             }
             case "--scopes": {
                 const v = argv[++i];
-                if (v === "readonly" || v === "full")
-                    opts.scopes = v;
+                if (v === "readonly")
+                    opts.scopes = "readonly";
+                else if (v === "submit" || v === "full")
+                    opts.scopes = "submit";
                 else
-                    throw new Error(`Invalid --scopes value: ${v}. Use readonly or full.`);
+                    throw new Error(`Invalid --scopes value: ${v}. Use readonly or submit.`);
                 break;
             }
             case "--site":
@@ -321,12 +325,21 @@ async function runSetup(argv) {
             scopes = opts.scopes;
         }
         else {
-            const answer = await prompter.ask("Access level? [1] Read only (recommended)  [2] Full, adds sitemap and URL submission tools. Choose [1/2]: ", "1");
-            scopes = answer.trim() === "2" ? "full" : "readonly";
+            const answer = await prompter.ask("Access level? [1] Read only (recommended)  [2] Submit, adds Indexing API URL updates and sitemap submission. Choose [1/2]: ", "1");
+            scopes = answer.trim() === "2" ? "submit" : "readonly";
         }
         console.log(scopes === "readonly"
             ? "Read only access. The consent screen will show a single view permission."
-            : "Full access. Includes sitemap submission and the Indexing API.");
+            : "Submit access. Adds the Indexing API scope and the webmasters scope required by sitemap submission.");
+        if (opts.site) {
+            try {
+                opts.site = (0, allowlist_js_1.assertAllowedProperty)(opts.site);
+            }
+            catch (err) {
+                console.error(err.message);
+                return 1;
+            }
+        }
         // 3. Authenticate and verify, unless dry run
         let siteUrl = opts.site;
         if (!opts.dryRun) {
@@ -339,16 +352,22 @@ async function runSetup(argv) {
             const auth = await (0, oauth_js_1.authenticateWithOAuth)();
             const sc = googleapis_1.google.searchconsole({ version: "v1", auth });
             const res = await sc.sites.list({});
-            const sites = (res.data.siteEntry || []).filter((s) => s.siteUrl);
-            console.log(`\nConnected. Your Google account has ${sites.length} Search Console propert${sites.length === 1 ? "y" : "ies"}.`);
+            const sites = (res.data.siteEntry || []).filter((s) => {
+                if (!s.siteUrl)
+                    return false;
+                try {
+                    (0, allowlist_js_1.assertAllowedProperty)(s.siteUrl);
+                    return true;
+                }
+                catch {
+                    return false;
+                }
+            });
+            console.log(`\nConnected. ${sites.length} allowlisted Search Console propert${sites.length === 1 ? "y" : "ies"} on this account.`);
             if (!siteUrl) {
                 if (sites.length === 0) {
-                    console.log("No properties found on this account. You can still set one manually.");
-                    siteUrl = await prompter.ask("Default property (e.g. sc-domain:yoursite.com): ", "");
-                    if (!siteUrl) {
-                        console.error("A default property is required. Re-run setup once the Google account has GSC access.");
-                        return 1;
-                    }
+                    console.error("No allowlisted properties on this account. Set GSC_ALLOWED_HOSTS or verify sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/.");
+                    return 1;
                 }
                 else if (sites.length === 1) {
                     siteUrl = sites[0].siteUrl;
@@ -362,9 +381,17 @@ async function runSetup(argv) {
                     console.log(`Default property: ${siteUrl}`);
                 }
             }
+            if (!siteUrl) {
+                console.error("A default property is required.");
+                return 1;
+            }
+            siteUrl = (0, allowlist_js_1.assertAllowedProperty)(siteUrl);
         }
         else if (!siteUrl) {
-            siteUrl = "sc-domain:yoursite.com";
+            siteUrl = "sc-domain:tradylist.com";
+        }
+        else {
+            siteUrl = (0, allowlist_js_1.assertAllowedProperty)(siteUrl);
         }
         // 4. Choose where to install
         let client = opts.client;

@@ -9,12 +9,12 @@
 [![MCP server](https://img.shields.io/badge/MCP-server-305686?style=flat-square&labelColor=24292f&logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io/)
 [![Works with Claude Desktop and Claude Code](https://img.shields.io/badge/Claude-Desktop%20%2B%20Code-305686?style=flat-square&labelColor=24292f&logo=claude&logoColor=white)](#quick-start)
 [![Google Search Console API](https://img.shields.io/badge/Google%20Search%20Console-API-305686?style=flat-square&labelColor=24292f&logo=googlesearchconsole&logoColor=white)](https://developers.google.com/webmaster-tools)
-[![29 tools](https://img.shields.io/badge/tools-29-305686?style=flat-square&labelColor=24292f)](#all-29-tools)
+[![27 tools](https://img.shields.io/badge/tools-27-305686?style=flat-square&labelColor=24292f)](#all-27-tools)
 [![Privacy: local first](https://img.shields.io/badge/privacy-local%20first-305686?style=flat-square&labelColor=24292f&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI%2BPHJlY3Qgd2lkdGg9IjE4IiBoZWlnaHQ9IjExIiB4PSIzIiB5PSIxMSIgcng9IjIiIHJ5PSIyIi8%2BPHBhdGggZD0iTTcgMTFWN2E1IDUgMCAwIDEgMTAgMHY0Ii8%2BPC9zdmc%2BCg%3D%3D)](#what-makes-this-different-from-other-google-search-console-mcp-servers)
 
 An MCP server for Google Search Console that lets you ask Claude questions about your search data and get real answers. Not raw API rows. Actual analysis.
 
-29 tools. OAuth or service account. Free and open source. Runs on your machine: your data goes straight from this computer to Google, and nothing passes through anyone else's servers.
+27 tools. OAuth or service account. Free and open source. Runs on your machine: your data goes straight from this computer to Google, and nothing passes through anyone else's servers.
 
 https://github.com/user-attachments/assets/ef131907-4461-4c6a-8080-770f8162dbf2
 
@@ -22,15 +22,11 @@ Also on [YouTube](https://www.youtube.com/watch?v=U0FGD6SXQt8).
 
 > **Full setup guide with screenshots:** [suganthan.com/blog/google-search-console-mcp-server/](https://suganthan.com/blog/google-search-console-mcp-server/)
 
-> **v2.5.0 update (August 2026):** new tool `image_page_audit` closes the image SEO loop. The v2.3 suite tells you which pages fail in image search; this one fetches those pages from your own site and tells you why: alt text, filenames, dimension attributes, lazy loading on the LCP image, formats and weights, the ~250x200 indexing minimum, ImageObject/licensable schema, max-image-preview, and the metadata inside the image files (camera EXIF to strip, IPTC to keep, DigitalSourceType on AI images). It only ever fetches the URLs you give it. Launch post with the whole 8-tool workflow on real client data: ["One Page Earned 102,657 Image Impressions and 2 Clicks"](https://suganthan.com/blog/gsc-mcp-image-seo-tools/).
+> **TradyList fork.** Submissions and properties are limited to `tradylist.com` and `www.tradylist.com` (`GSC_ALLOWED_HOSTS` overrides the host list). URL deletion, fetching caller-supplied pages, and writing reports to disk are removed. Details: [SECURITY-FORK.md](SECURITY-FORK.md).
 
 > **v2.4.0 update (August 2026):** new tool `genai_conversation_queries` finds the AI conversations leaking into your query report. People reply to Google's AI with things like "yes, go on", Google logs every follow-up as a new query, and this tool sorts all of it into seven classified buckets with landing pages and a monthly timeline. Full method and findings: ["Yes, Go On": The AI Conversations Leaking Into Your Search Console](https://suganthan.com/blog/ai-mode-queries-search-console/).
 
 ## See it in action
-
-**"Audit the images on these pages"**
-
-![Per-image findings from image_page_audit: alt status, filename, loading, weight and metadata per image, with an ordered fix list per page](screenshots/image-page-audit.jpg)
 
 **"Which of my queries are actually AI conversations?"**
 
@@ -95,11 +91,11 @@ npx -y suganthan-gsc-mcp setup
 
 The wizard signs you in with Google, verifies the connection with a live API call, lets you pick your property from a list, and writes the config for Claude Desktop and Claude Code. No config files to edit.
 
-Read only by default: the standard consent screen asks for a single view permission. Choose full access during setup if you want the sitemap and URL submission tools.
+Read only by default: the standard consent screen asks for a single view permission (`webmasters.readonly`). Choose submit access during setup if you want sitemap submission and Indexing API `URL_UPDATED`. Sitemap submission also needs the `webmasters` scope, because `sitemaps.submit` rejects the readonly scope. The indexing scope is requested only on that submit tier.
 
 For now you still need your own Google OAuth client JSON one time (steps 1 to 3 under Manual OAuth below); the wizard takes it from there. Built in Google sign in, with no Google Cloud steps at all, ships the moment Google finishes verifying the shared client.
 
-Useful flags: `--client desktop|code|both|print`, `--scopes readonly|full`, `--site <property>`, `--secrets <path>`, `--reauth`, `--force`, `--dry-run`, `--help`.
+Useful flags: `--client desktop|code|both|print`, `--scopes readonly|submit`, `--site <property>`, `--secrets <path>`, `--reauth`, `--force`, `--dry-run`, `--help`. `full` is accepted as an alias of `submit`.
 
 ### One click desktop install
 
@@ -129,7 +125,7 @@ Prefer no terminal at all? Download the `.mcpb` bundle from the [releases page](
 }
 ```
 
-First use opens a browser for Google sign in. Token is cached after that (locally, at `~/.gsc-mcp/`). Set `GSC_SCOPES` to `full` if you want the submission tools; omit it and you get full access, matching pre 2.3 behaviour. Running from a git checkout instead of npm? Use `"command": "node", "args": ["/path/to/Suganthans-GSC-MCP/dist/index.js"]`.
+First use opens a browser for Google sign in. Token is cached after that (locally, at `~/.gsc-mcp/`). Omit `GSC_SCOPES` and the server requests only `webmasters.readonly`. Set `GSC_SCOPES` to `submit` for URL and sitemap submission. Running from a git checkout instead of npm? Use `"command": "node", "args": ["/path/to/Suganthans-GSC-MCP/dist/index.js"]`.
 
 ### Option B: Service Account
 
@@ -165,10 +161,13 @@ Google's Generative AI performance report has no API, no BigQuery export, and no
 
 To use `submit_url`, `submit_batch`, and `submit_sitemap`:
 
-1. Enable the **Web Search Indexing API** in your [Google Cloud console](https://console.cloud.google.com/apis/library/indexing.googleapis.com)
-2. Your service account (or OAuth credentials) need owner-level access in Search Console
+1. Set `GSC_SCOPES=submit` and re-authenticate. Readonly mode does not request the indexing scope.
+2. Enable the **Web Search Indexing API** in your [Google Cloud console](https://console.cloud.google.com/apis/library/indexing.googleapis.com)
+3. Your service account (or OAuth credentials) need owner-level access in Search Console
 
-Note: Google officially says the Indexing API is for JobPosting and BroadcastEvent schema types. In practice, it processes requests for all page types.
+Submissions are `URL_UPDATED` only. The URL host must be exactly `tradylist.com` or `www.tradylist.com` over https, unless `GSC_ALLOWED_HOSTS` lists other bare hosts. The same rule applies to sitemap URLs and to every tool's site property (`sc-domain:tradylist.com`, `https://tradylist.com/`, or `https://www.tradylist.com/`). Anything else is rejected before a request is sent. Each process may submit at most `GSC_MAX_URL_SUBMITS` URLs (default 50); a sitemap submission counts as one.
+
+Note: Google officially says the Indexing API is for JobPosting and BroadcastEvent schema types. In practice, it processes requests for all page types. `sitemaps.submit` needs the full `webmasters` scope; `webmasters.readonly` cannot call it. That scope is requested only when `GSC_SCOPES=submit`.
 
 ### Multi-site
 
@@ -176,14 +175,14 @@ For multiple properties, add `GSC_SITE_URLS`:
 
 ```json
 "env": {
-  "GSC_SITE_URL": "sc-domain:primarysite.com",
-  "GSC_SITE_URLS": "sc-domain:primarysite.com,sc-domain:secondsite.com"
+  "GSC_SITE_URL": "sc-domain:tradylist.com",
+  "GSC_SITE_URLS": "sc-domain:tradylist.com,https://www.tradylist.com/"
 }
 ```
 
-You can also point a single query at any property your credentials can see without touching the config: `advanced_search_analytics`, `genai_conversation_queries`, and all 7 image-search analysis tools take an optional `site_url` parameter. "Which pages get image impressions but no clicks on sc-domain:secondsite.com?" just works.
+`advanced_search_analytics`, `genai_conversation_queries`, and the image-search analysis tools take an optional `site_url`. It has to be an allowlisted property (`sc-domain:tradylist.com`, `https://tradylist.com/`, or `https://www.tradylist.com/`, or a host listed in `GSC_ALLOWED_HOSTS`). Other hosts are rejected before any request.
 
-## All 29 tools
+## All 27 tools
 
 ### Analysis
 
@@ -202,10 +201,9 @@ You can also point a single query at any property your credentials can see witho
 | `check_alerts` | Position drops, CTR collapses, click losses, disappeared pages. Severity-rated |
 | `content_recommendations` | Prioritised actions: pages to update, content to create, pages to consolidate |
 | `advanced_search_analytics` | Custom queries with flexible dimensions and filters |
-| `generate_report` | Full markdown report saved to disk |
-| `multi_site_dashboard` | Health check across all properties in one command |
+| `multi_site_dashboard` | Health check across allowlisted properties in one command |
 
-### Image SEO (v2.3 + v2.5)
+### Image SEO (v2.3)
 
 These tools pass `type=image` to the GSC Search Analytics API, which most third-party tools never expose. They cover the visual-search surface end-to-end.
 
@@ -218,15 +216,14 @@ These tools pass `type=image` to the GSC Search Analytics API, which most third-
 | `image_keyword_trends` | Period-over-period deltas for image-search queries. Impressions delta and position delta (negative position delta means the query improved its average rank) |
 | `image_impressions_no_clicks` | Query and page pairs earning meaningful image impressions but near-zero clicks. The textbook thumbnail-not-converting pattern |
 | `image_content_decay` | Image-search version of `content_decay`. Pages losing image-search traffic across 3 consecutive 30-day periods, sorted by total click loss |
-| `image_page_audit` | Fetches pages from your own site and audits every image on them: alt text, filenames, width/height attributes, lazy loading on the LCP candidate, srcset, format and weight, intrinsic dimensions vs the ~250x200 indexing minimum, ImageObject and licensable schema, max-image-preview, and in-file metadata (camera EXIF, IPTC editorial fields, XMP DigitalSourceType). The bridge from "which pages fail" to "why they fail" (v2.5) |
 
 ### Indexing
 
 | Tool | What it does |
 |---|---|
-| `submit_url` | Submit a URL to Google's Indexing API for crawling |
-| `submit_batch` | Batch submit up to 200 URLs (daily quota) |
-| `submit_sitemap` | Notify Google of a new or updated sitemap |
+| `submit_url` | Submit one allowlisted https URL to the Indexing API as `URL_UPDATED` |
+| `submit_batch` | Submit allowlisted https URLs as `URL_UPDATED`, within the per-process cap |
+| `submit_sitemap` | Notify Google of an allowlisted sitemap |
 | `list_sitemaps` | All submitted sitemaps with status, errors, and indexed counts |
 
 ### Safety
@@ -247,7 +244,7 @@ These tools pass `type=image` to the GSC Search Analytics API, which most third-
 
 **Fresh data.** Uses `dataState: 'all'` so data matches the GSC dashboard, not 2-3 days stale.
 
-**Proactive, not reactive.** Alerting, content recommendations, and scheduled reports catch problems before you think to look.
+**Proactive, not reactive.** Alerts and content recommendations catch problems before you think to look.
 
 ## Environment variables
 
@@ -258,9 +255,11 @@ These tools pass `type=image` to the GSC Search Analytics API, which most third-
 | `GSC_OAUTH_SECRETS_FILE` | OAuth mode | Path to OAuth client secrets JSON |
 | `GSC_OAUTH_CLIENT_ID` | OAuth mode (alt) | OAuth client ID |
 | `GSC_OAUTH_CLIENT_SECRET` | OAuth mode (alt) | OAuth client secret |
-| `GSC_SITE_URL` | Yes | Primary GSC property URL |
-| `GSC_SITE_URLS` | No | Comma-separated list for multi-site |
-| `GSC_SCOPES` | No | `readonly` or `full` (default: `full`). Read only keeps the Google consent to a single view permission; submission tools then explain how to upgrade |
+| `GSC_SITE_URL` | Yes | Allowlisted GSC property (`sc-domain:tradylist.com`, `https://tradylist.com/`, or `https://www.tradylist.com/`) |
+| `GSC_SITE_URLS` | No | Comma-separated allowlisted properties for multi-site |
+| `GSC_SCOPES` | No | `readonly` (default) or `submit`. `full` is an alias of `submit`. Readonly requests only `webmasters.readonly`. Submit also requests `indexing` and `webmasters` (sitemap submission needs `webmasters`) |
+| `GSC_ALLOWED_HOSTS` | No | Comma-separated bare hosts. Default: `tradylist.com,www.tradylist.com` |
+| `GSC_MAX_URL_SUBMITS` | No | Per-process cap on URL and sitemap submissions. Default: `50` |
 
 ## Full guide
 
@@ -271,10 +270,6 @@ Step-by-step setup with screenshots, use cases, and examples:
 ## Changelog
 
 **v2.5.1** Three fixes from the issue queue. The sitemaps tools now call `sc-domain:` properties as-is, which the Sitemaps API supports and always has; the old URL-prefix rewrite manufactured a 403, blamed the API for it, and on some accounts silently returned a stale URL-prefix property's sitemap list instead of the domain property's. The rewrite survives only as a fallback for accounts whose permission genuinely lives on a URL-prefix property. Credit to [pauljlange](https://github.com/pauljlange) for proving the premise wrong with raw API calls. Service-account mode now requests the same scope set as the OAuth flow, so `submit_url` and `submit_batch` work with service accounts and the `GSC_SCOPES=readonly` tier applies there too; the OAuth half of this shipped earlier via [tomschmidty12-sys](https://github.com/tomschmidty12-sys)'s PR, after [stuli1989](https://github.com/stuli1989) reported it and sent the first fix for both modes in [#3](https://github.com/Suganthan-Mohanadasan/Suganthans-GSC-MCP/pull/3). And the Google client libraries are bumped (googleapis 144 to 176, google-auth-library 10, gaxios 7) so token fetches use Node's native fetch; the old node-fetch path failed to decompress Google's gzip token responses on Node 22 and newer, which broke service accounts, most visibly on Windows. Credit to [wilotas](https://github.com/wilotas) for the full diagnosis and the verified fix. Also fixed: the one-click desktop bundle. Every previous `.mcpb` shipped without the googleapis package internals (the packer silently pruned them), so the extension could never start, and "Unable to connect to extension server" was this bug, not your config. The v2.5.1 bundle carries the complete production dependency tree and was runtime-tested against the live API before upload, which is why it is bigger. Credit to [VeloWulf](https://github.com/VeloWulf) for the report.
-
-**v2.5.0** Image page audit. `image_page_audit` fetches up to 5 pages from your own site and audits every image on them against the on-page factors that decide image-search performance: missing, empty, generic, filename-as-alt or duplicate alt text, camera-default and stock-agency-default filenames (shutterstock_524347192.jpg tells Google nothing), missing width/height attributes, lazy loading on the LCP candidate, srcset coverage, file format and weight (flags photos shipped as PNG and anything over 500KB), intrinsic dimensions against Google's ~250x200 indexing minimum, ImageObject and licensable-field schema, primaryImageOfPage, max-image-preview, inline background images, and the metadata inside the image files via exifr: camera EXIF and GPS that should be stripped, IPTC Creator/Copyright/Caption that should survive your CMS, and XMP DigitalSourceType on AI-generated images. Returns per-image findings, page-level checks, and an ordered top_fixes list. Pairs with `image_impressions_no_clicks` and `image_search_quick_wins`: those name the pages, this names the reasons. Fetches only the URLs it is given, so the privacy model is unchanged: your data goes to Google and your own site and nowhere else. New dependencies: node-html-parser, image-size, exifr (all pure JS, no native builds). The 7 image-search analysis tools also gain the optional `site_url` override that `advanced_search_analytics` already had, so any of them can be pointed at any property your credentials can see without editing the config. Launch post with the full workflow on real client data: ["One Page Earned 102,657 Image Impressions and 2 Clicks"](https://suganthan.com/blog/gsc-mcp-image-seo-tools/).
-
-![Per-image findings from image_page_audit](screenshots/image-page-audit.jpg)
 
 **v2.4.0** Generative AI conversation queries. `genai_conversation_queries` finds the AI conversation fragments hiding in your regular query data and sorts them into seven kinds: reply artefacts ("yes", "go on"), pivot follow-ups ("what about resend?"), conversational questions, tracker probes, agent harnesses, pasted strings, and a review pile. Google counts every AI Mode follow-up as a brand new query, so these rows carry real impressions, positions and clicks, and the dedicated Generative AI report has no query view, which makes this the only query-level AI evidence available anywhere. One call classifies sixteen months of your queries, attaches landing pages via query and page grouping, and returns a monthly reply-artefact timeline. Plain Search Analytics API, no BigQuery, no new permissions. Full method and findings: [the launch post](https://suganthan.com/blog/ai-mode-queries-search-console/). Sparked by [Anastasia Kourou surfacing the queries](https://www.linkedin.com/posts/anastasia-kourou-4b393034_hi-john-mueller-i-am-noticing-some-unusual-share-7489988919229353984-FJ0m/) with John Mueller confirming the mechanism, and by [Ross Tavendale asking](https://x.com/rtavs/status/2084710985298780579) how to reverse engineer it.
 
@@ -314,7 +309,7 @@ I write about organic search, AI, and the tools I build on [suganthan.com](https
 |---|---|
 | [Google Search Console MCP setup guide](https://suganthan.com/blog/google-search-console-mcp-server/) | Step by step setup with screenshots, for OAuth and service accounts |
 | ["Yes, Go On": The AI Conversations Leaking Into Your Search Console](https://suganthan.com/blog/ai-mode-queries-search-console/) | The research behind `genai_conversation_queries` (v2.4) |
-| [One Page Earned 102,657 Image Impressions and 2 Clicks](https://suganthan.com/blog/gsc-mcp-image-seo-tools/) | The image SEO tools on real client data (v2.3 and v2.5) |
+| [One Page Earned 102,657 Image Impressions and 2 Clicks](https://suganthan.com/blog/gsc-mcp-image-seo-tools/) | Upstream writeup of the image-search analysis tools. This fork does not fetch pages |
 | [How my MCP calculates average position](https://suganthan.com/notes/gsc-average-position/) | The maths behind every position figure, and how to make Claude prove a number |
 
 ### Outgrowing the Search Console API?

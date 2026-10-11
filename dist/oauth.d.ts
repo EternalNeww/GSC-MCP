@@ -1,9 +1,14 @@
-export type ScopeTier = "readonly" | "full";
+export type ScopeTier = "readonly" | "submit";
+export declare const WEBMASTERS_READONLY_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+/** Required only by sitemaps.submit. webmasters.readonly cannot call it. */
+export declare const WEBMASTERS_SCOPE = "https://www.googleapis.com/auth/webmasters";
+/** Required only by Indexing API urlNotifications.publish (URL_UPDATED). */
+export declare const INDEXING_SCOPE = "https://www.googleapis.com/auth/indexing";
 /**
- * GSC_SCOPES=readonly requests only webmasters.readonly, which keeps the
- * Google consent screen to a single read-only permission. The default is
- * "full" (read + sitemap submission + Indexing API) so existing installs
- * keep working exactly as before this option existed.
+ * Default is readonly: webmasters.readonly only.
+ * GSC_SCOPES=submit (alias: full) adds the Indexing API scope for URL_UPDATED
+ * submissions and the webmasters scope because sitemaps.submit rejects the
+ * readonly scope. See SECURITY-FORK.md.
  */
 export declare function getScopeTier(): ScopeTier;
 export declare function scopesForTier(tier: ScopeTier): string[];

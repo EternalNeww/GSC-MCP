@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.INDEXING_SCOPE = exports.WEBMASTERS_SCOPE = exports.WEBMASTERS_READONLY_SCOPE = void 0;
 exports.getScopeTier = getScopeTier;
 exports.scopesForTier = scopesForTier;
 exports.clearCachedToken = clearCachedToken;
@@ -49,28 +50,28 @@ const os = __importStar(require("os"));
 const embedded_client_js_1 = require("./embedded-client.js");
 const TOKEN_DIR = path.join(os.homedir(), ".gsc-mcp");
 const TOKEN_PATH = path.join(TOKEN_DIR, "oauth-token.json");
+exports.WEBMASTERS_READONLY_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+/** Required only by sitemaps.submit. webmasters.readonly cannot call it. */
+exports.WEBMASTERS_SCOPE = "https://www.googleapis.com/auth/webmasters";
+/** Required only by Indexing API urlNotifications.publish (URL_UPDATED). */
+exports.INDEXING_SCOPE = "https://www.googleapis.com/auth/indexing";
 /**
- * GSC_SCOPES=readonly requests only webmasters.readonly, which keeps the
- * Google consent screen to a single read-only permission. The default is
- * "full" (read + sitemap submission + Indexing API) so existing installs
- * keep working exactly as before this option existed.
+ * Default is readonly: webmasters.readonly only.
+ * GSC_SCOPES=submit (alias: full) adds the Indexing API scope for URL_UPDATED
+ * submissions and the webmasters scope because sitemaps.submit rejects the
+ * readonly scope. See SECURITY-FORK.md.
  */
 function getScopeTier() {
-    return process.env.GSC_SCOPES?.toLowerCase() === "readonly" ? "readonly" : "full";
+    const raw = process.env.GSC_SCOPES?.trim().toLowerCase();
+    if (raw === "submit" || raw === "full")
+        return "submit";
+    return "readonly";
 }
 function scopesForTier(tier) {
     if (tier === "readonly") {
-        return ["https://www.googleapis.com/auth/webmasters.readonly"];
+        return [exports.WEBMASTERS_READONLY_SCOPE];
     }
-    return [
-        "https://www.googleapis.com/auth/webmasters.readonly",
-        "https://www.googleapis.com/auth/webmasters",
-        // Required for the submit_url / submit_batch tools (Indexing API).
-        // Without this scope the token issued by the OAuth flow cannot call
-        // indexing.urlNotifications.publish, and submissions fail with
-        // "Insufficient Permission" even when the Indexing API is enabled.
-        "https://www.googleapis.com/auth/indexing",
-    ];
+    return [exports.WEBMASTERS_READONLY_SCOPE, exports.INDEXING_SCOPE, exports.WEBMASTERS_SCOPE];
 }
 function clearCachedToken() {
     try {
@@ -143,9 +144,9 @@ function cachedTokenCoversScopes(cachedToken) {
     const needed = scopesForTier(getScopeTier());
     const granted = typeof cachedToken?.scope === "string" ? cachedToken.scope.split(" ") : [];
     if (granted.length === 0) {
-        // Tokens cached before v2.3 carried no scope field; they were always
-        // granted the full set, so treat them as covering everything.
-        return true;
+        // No recorded grant. Readonly can proceed; submission scopes must be
+        // re-consented so indexing and webmasters are not assumed.
+        return getScopeTier() === "readonly";
     }
     return needed.every((s) => granted.includes(s));
 }

@@ -62,6 +62,7 @@ export type Bucket =
   | "long_uncategorised";
 
 export function classifyQuery(query: string): Bucket | null {
+  // Fixed patterns only. The query string is untrusted text and is never compiled, evaluated, or fetched.
   const q = query.toLowerCase().trim();
   const words = q.split(/ +/).length;
   if (RE.artefact.test(q)) return "artefact";
