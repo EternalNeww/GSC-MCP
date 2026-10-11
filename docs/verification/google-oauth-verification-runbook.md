@@ -55,7 +55,7 @@ Google Auth Platform > Data access > Add or remove scopes. Add all three:
 
 All sensitive, none restricted, so verification is the standard review. No CASA security assessment is required.
 
-Note for the form: the app defaults to requesting only `webmasters.readonly` (the read only tier). The other two are requested only when the user explicitly chooses full access during setup. Say this in the justification, reviewers look favourably on minimal default scope requests.
+Note for the form: the app defaults to requesting only `webmasters.readonly` (the read only tier). The indexing scope and the webmasters scope are requested only when the user sets `GSC_SCOPES=submit`. `webmasters` is included because `sitemaps.submit` rejects the readonly scope. Say this in the justification, reviewers look favourably on minimal default scope requests.
 
 ## 5. Create the OAuth client
 

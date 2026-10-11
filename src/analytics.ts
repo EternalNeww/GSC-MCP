@@ -1,4 +1,6 @@
 import { getSearchConsoleClient, getConfig } from "./auth.js";
+import { assertAllowedProperty } from "./allowlist.js";
+import { asUntrustedText } from "./untrusted.js";
 
 export interface SearchAnalyticsRow {
   keys: string[];
@@ -62,8 +64,8 @@ export function getPriorDateRange(days: number): { startDate: string; endDate: s
  * Uses dataState: 'all' so data matches the GSC dashboard exactly.
  */
 export async function fetchAllRows(params: QueryParams, siteUrlOverride?: string): Promise<SearchAnalyticsRow[]> {
+  const siteUrl = assertAllowedProperty(siteUrlOverride || getConfig().siteUrl);
   const client = await getSearchConsoleClient();
-  const siteUrl = siteUrlOverride || getConfig().siteUrl;
   const allRows: SearchAnalyticsRow[] = [];
   const pageSize = params.rowLimit || 25000;
   let startRow = 0;
@@ -90,7 +92,8 @@ export async function fetchAllRows(params: QueryParams, siteUrlOverride?: string
 
     for (const row of rows) {
       allRows.push({
-        keys: row.keys || [],
+        // Query and page strings are untrusted text. They are copied, not evaluated.
+        keys: (row.keys || []).map((key) => asUntrustedText(key ?? "")),
         clicks: row.clicks || 0,
         impressions: row.impressions || 0,
         ctr: row.ctr || 0,

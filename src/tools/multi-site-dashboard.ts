@@ -1,4 +1,5 @@
 import { fetchAllRows, getDateRange, getPriorDateRange } from "../analytics.js";
+import { assertAllowedProperty } from "../allowlist.js";
 import { getConfig } from "../auth.js";
 
 interface SiteHealth {
@@ -83,19 +84,20 @@ export async function multiSiteDashboard(
   siteUrls?: string[],
   days: number = 28
 ): Promise<MultiSiteDashboardResult> {
-  const config = getConfig();
-
-  const urls = siteUrls && siteUrls.length > 0
+  const rawUrls = siteUrls && siteUrls.length > 0
     ? siteUrls
-    : config.siteUrls.length > 0
-      ? config.siteUrls
-      : [config.siteUrl];
+    : (() => {
+        const config = getConfig();
+        return config.siteUrls.length > 0 ? config.siteUrls : [config.siteUrl];
+      })();
 
-  if (urls.length === 0) {
+  if (rawUrls.length === 0) {
     throw new Error(
       "No site URLs provided. Pass site_urls parameter or set GSC_SITE_URLS environment variable."
     );
   }
+
+  const urls = rawUrls.map((url) => assertAllowedProperty(url));
 
   // Run all site snapshots in parallel
   const sites = await Promise.all(urls.map((url) => siteSnapshotForUrl(url, days)));

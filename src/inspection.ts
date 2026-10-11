@@ -1,4 +1,6 @@
 import { getSearchConsoleClient, getConfig } from "./auth.js";
+import { assertAllowedPageUrl } from "./allowlist.js";
+import { asUntrustedText } from "./untrusted.js";
 
 export interface InspectionResult {
   indexed: boolean;
@@ -17,12 +19,13 @@ export interface InspectionResult {
 }
 
 export async function inspectUrl(url: string): Promise<InspectionResult> {
-  const client = await getSearchConsoleClient();
+  const inspectionUrl = assertAllowedPageUrl(url);
   const { siteUrl } = getConfig();
+  const client = await getSearchConsoleClient();
 
   const response = await client.urlInspection.index.inspect({
     requestBody: {
-      inspectionUrl: url,
+      inspectionUrl,
       siteUrl,
     },
   });
@@ -43,8 +46,8 @@ export async function inspectUrl(url: string): Promise<InspectionResult> {
     issues.push(`Page fetch failed: ${indexStatus.pageFetchState}`);
   }
 
-  const googleCanonical = indexStatus?.googleCanonical || null;
-  const userCanonical = indexStatus?.userCanonical || null;
+  const googleCanonical = indexStatus?.googleCanonical ? asUntrustedText(indexStatus.googleCanonical) : null;
+  const userCanonical = indexStatus?.userCanonical ? asUntrustedText(indexStatus.userCanonical) : null;
 
   if (googleCanonical && userCanonical && googleCanonical !== userCanonical) {
     issues.push(
@@ -55,24 +58,25 @@ export async function inspectUrl(url: string): Promise<InspectionResult> {
   if (mobileResult?.verdict === "VERDICT_HAS_ISSUES") {
     const mobileIssues = mobileResult.issues || [];
     for (const issue of mobileIssues) {
-      issues.push(`Mobile: ${issue.message || issue.issueType}`);
+      const message = asUntrustedText(issue.message || issue.issueType || "");
+      issues.push(`Mobile: ${message}`);
     }
   }
 
   return {
     indexed: indexStatus?.coverageState === "Submitted and indexed" ||
              indexStatus?.verdict === "PASS",
-    indexingState: indexStatus?.coverageState || "Unknown",
-    lastCrawlTime: indexStatus?.lastCrawlTime || null,
+    indexingState: asUntrustedText(indexStatus?.coverageState || "Unknown"),
+    lastCrawlTime: indexStatus?.lastCrawlTime ? asUntrustedText(indexStatus.lastCrawlTime) : null,
     crawlAllowed: indexStatus?.robotsTxtState !== "DISALLOWED",
-    robotsTxtState: indexStatus?.robotsTxtState || "Unknown",
+    robotsTxtState: asUntrustedText(indexStatus?.robotsTxtState || "Unknown"),
     indexingAllowed: indexStatus?.indexingState !== "INDEXING_NOT_ALLOWED",
-    pageFetchState: indexStatus?.pageFetchState || "Unknown",
+    pageFetchState: asUntrustedText(indexStatus?.pageFetchState || "Unknown"),
     googleCanonical,
     userCanonical,
     canonicalMatch: googleCanonical === userCanonical || (!googleCanonical && !userCanonical),
-    mobileUsability: mobileResult?.verdict || "Unknown",
-    verdict: indexStatus?.verdict || "Unknown",
-    issues,
+    mobileUsability: asUntrustedText(mobileResult?.verdict || "Unknown"),
+    verdict: asUntrustedText(indexStatus?.verdict || "Unknown"),
+    issues: issues.map((issue) => asUntrustedText(issue)),
   };
 }

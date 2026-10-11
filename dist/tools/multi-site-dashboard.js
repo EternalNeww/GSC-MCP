@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.multiSiteDashboard = multiSiteDashboard;
 const analytics_js_1 = require("../analytics.js");
+const allowlist_js_1 = require("../allowlist.js");
 const auth_js_1 = require("../auth.js");
 async function siteSnapshotForUrl(siteUrl, days) {
     const current = (0, analytics_js_1.getDateRange)(days);
@@ -56,15 +57,16 @@ async function siteSnapshotForUrl(siteUrl, days) {
     };
 }
 async function multiSiteDashboard(siteUrls, days = 28) {
-    const config = (0, auth_js_1.getConfig)();
-    const urls = siteUrls && siteUrls.length > 0
+    const rawUrls = siteUrls && siteUrls.length > 0
         ? siteUrls
-        : config.siteUrls.length > 0
-            ? config.siteUrls
-            : [config.siteUrl];
-    if (urls.length === 0) {
+        : (() => {
+            const config = (0, auth_js_1.getConfig)();
+            return config.siteUrls.length > 0 ? config.siteUrls : [config.siteUrl];
+        })();
+    if (rawUrls.length === 0) {
         throw new Error("No site URLs provided. Pass site_urls parameter or set GSC_SITE_URLS environment variable.");
     }
+    const urls = rawUrls.map((url) => (0, allowlist_js_1.assertAllowedProperty)(url));
     // Run all site snapshots in parallel
     const sites = await Promise.all(urls.map((url) => siteSnapshotForUrl(url, days)));
     const healthyCount = sites.filter((s) => s.health === "healthy").length;

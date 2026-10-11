@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { searchconsole_v1 } from "googleapis";
 import * as fs from "fs";
+import { assertAllowedProperty } from "./allowlist.js";
 import { authenticateWithOAuth, getScopeTier, scopesForTier } from "./oauth.js";
 
 let cachedClient: searchconsole_v1.Searchconsole | null = null;
@@ -15,12 +16,22 @@ export function getAuthMode(): AuthMode {
 
 export function getConfig() {
   const mode = getAuthMode();
-  const siteUrl = process.env.GSC_SITE_URL;
+  const siteUrl = process.env.GSC_SITE_URL?.trim();
   const siteUrls = process.env.GSC_SITE_URLS
     ? process.env.GSC_SITE_URLS.split(",").map((s) => s.trim()).filter(Boolean)
     : siteUrl
       ? [siteUrl]
       : [];
+
+  if (!siteUrl && siteUrls.length === 0) {
+    throw new Error(
+      "GSC_SITE_URL environment variable is required. " +
+      "Set it to an allowlisted GSC property (sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/)."
+    );
+  }
+
+  const chosen = assertAllowedProperty(siteUrl || siteUrls[0]);
+  const allowedSites = (siteUrls.length > 0 ? siteUrls : [chosen]).map((site) => assertAllowedProperty(site));
 
   if (mode === "service_account") {
     const keyFile = process.env.GSC_KEY_FILE;
@@ -31,33 +42,20 @@ export function getConfig() {
         "or switch to OAuth by setting GSC_AUTH_MODE=oauth."
       );
     }
-    if (!siteUrl && siteUrls.length === 0) {
-      throw new Error(
-        "GSC_SITE_URL environment variable is required. " +
-        "Set it to your GSC property URL (e.g. https://yoursite.com/ or sc-domain:yoursite.com)."
-      );
-    }
     if (!fs.existsSync(keyFile)) {
       throw new Error(`Service account key file not found at: ${keyFile}`);
     }
-    return { keyFile, siteUrl: siteUrl || siteUrls[0], siteUrls };
+    return { keyFile, siteUrl: chosen, siteUrls: allowedSites };
   }
 
-  // OAuth mode
-  if (!siteUrl && siteUrls.length === 0) {
-    throw new Error(
-      "GSC_SITE_URL environment variable is required. " +
-      "Set it to your GSC property URL (e.g. https://yoursite.com/ or sc-domain:yoursite.com)."
-    );
-  }
-  return { keyFile: undefined, siteUrl: siteUrl || siteUrls[0], siteUrls };
+  return { keyFile: undefined, siteUrl: chosen, siteUrls: allowedSites };
 }
 
 async function getServiceAccountClient(): Promise<searchconsole_v1.Searchconsole> {
   const { keyFile } = getConfig();
 
-  // Same scope set as the OAuth flow, including auth/indexing on the full
-  // tier so submit_url / submit_batch work in service-account mode too (#2).
+  // Same scope set as the OAuth flow. Readonly is the default. The submit
+  // tier adds indexing and webmasters (sitemaps.submit needs webmasters).
   const auth = new google.auth.GoogleAuth({
     keyFile,
     scopes: scopesForTier(getScopeTier()),

@@ -19,10 +19,10 @@ import { verifyClaim } from "./tools/verify-claim.js";
 import { advancedSearchAnalytics } from "./tools/advanced-search-analytics.js";
 import { checkAlerts } from "./tools/check-alerts.js";
 import { contentRecommendations } from "./tools/content-recommendations.js";
-import { generateReport } from "./tools/generate-report.js";
 import { multiSiteDashboard } from "./tools/multi-site-dashboard.js";
 import { submitUrl, submitBatch } from "./tools/submit-url.js";
 import { submitSitemap, listSitemaps } from "./tools/submit-sitemap.js";
+import { sanitizeUntrusted } from "./untrusted.js";
 // v2.3 image SEO tools — paired with the Image SEO post on suganthan.com.
 import { imageKeywordOverview } from "./tools/image-keyword-overview.js";
 import { imageSearchQuickWins } from "./tools/image-search-quick-wins.js";
@@ -35,14 +35,17 @@ import { imageContentDecay } from "./tools/image-content-decay.js";
 // conversation exhaust leaks into the regular query dimension. See the tool
 // file for the mechanism and sources.
 import { genaiConversationQueries } from "./tools/genai-conversation-queries.js";
-// v2.5: the bridge from "which pages fail in image search" to "why". Fetches
-// the user's own pages and audits the on-page image factors.
-import { imagePageAudit } from "./tools/image-page-audit.js";
 
 const server = new McpServer({
   name: "gsc-mcp",
   version: "2.5.1",
 });
+
+function toolResult(payload: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(sanitizeUntrusted(payload), null, 2) }],
+  };
+}
 
 // 1. Quick Wins
 server.tool(
@@ -56,9 +59,7 @@ server.tool(
   async ({ days, min_impressions, max_position }) => {
     const results = await quickWins(days, min_impressions, max_position);
     const wrapped = withMeta(results, "quick_wins", { days, min_impressions, max_position });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -73,9 +74,7 @@ server.tool(
   async ({ days, min_impressions }) => {
     const results = await ctrOpportunities(days, min_impressions);
     const wrapped = withMeta(results, "ctr_opportunities", { days, min_impressions });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -89,9 +88,7 @@ server.tool(
   async ({ days }) => {
     const results = await trafficDrops(days);
     const wrapped = withMeta(results, "traffic_drops", { days });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -107,9 +104,7 @@ server.tool(
   async ({ days, min_impressions, min_position }) => {
     const results = await contentGaps(days, min_impressions, min_position);
     const wrapped = withMeta(results, "content_gaps", { days, min_impressions, min_position });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -123,9 +118,7 @@ server.tool(
   async ({ days }) => {
     const results = await siteSnapshot(days);
     const wrapped = withMeta(results, "site_snapshot", { days });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -139,9 +132,7 @@ server.tool(
   async ({ url }) => {
     const results = await inspectUrlTool(url);
     const wrapped = withMeta(results, "inspect_url", { url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -156,9 +147,7 @@ server.tool(
   async ({ days, min_impressions }) => {
     const results = await cannibalizationCheck(days, min_impressions);
     const wrapped = withMeta(results, "cannibalization_check", { days, min_impressions });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -170,9 +159,7 @@ server.tool(
   async () => {
     const results = await contentDecay();
     const wrapped = withMeta(results, "content_decay", {});
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -187,9 +174,7 @@ server.tool(
   async ({ path_pattern, days }) => {
     const results = await topicClusterPerformance(path_pattern, days);
     const wrapped = withMeta(results, "topic_cluster_performance", { path_pattern, days });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -204,9 +189,7 @@ server.tool(
   async ({ days, min_impressions }) => {
     const results = await ctrVsBenchmark(days, min_impressions);
     const wrapped = withMeta(results, "ctr_vs_benchmark", { days, min_impressions });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -224,9 +207,7 @@ server.tool(
   },
   async ({ claim, metric, expected_value, url, query, days }) => {
     const results = await verifyClaim(claim, metric, expected_value, url, query, days);
-    return {
-      content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-    };
+    return toolResult(results);
   }
 );
 
@@ -251,9 +232,7 @@ server.tool(
   async ({ days, dimensions, filters, row_limit, order_by, order_direction, site_url, search_type }) => {
     const results = await advancedSearchAnalytics(days, dimensions, filters, row_limit, order_by, order_direction, site_url, search_type);
     const wrapped = withMeta(results, "advanced_search_analytics", { days, dimensions, filters, row_limit, order_by, search_type });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -270,9 +249,7 @@ server.tool(
   async ({ days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold }) => {
     const results = await checkAlerts(days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold);
     const wrapped = withMeta(results, "check_alerts", { days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -287,30 +264,11 @@ server.tool(
   async ({ days, max_recommendations }) => {
     const results = await contentRecommendations(days, max_recommendations);
     const wrapped = withMeta(results, "content_recommendations", { days, max_recommendations });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
-// 15. Generate Report
-server.tool(
-  "generate_report",
-  "Generate a comprehensive markdown performance report. Covers site snapshot, alerts, quick wins, traffic drops, content decay, and recommendations. Saves to disk for weekly reviews or scheduled reporting." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX,
-  {
-    output_path: z.string().optional().describe("File path to save the report (default: ./gsc-report-{date}.md)"),
-    days: z.number().default(28).describe("Number of days to analyse"),
-    include_sections: z.array(z.string()).optional().describe("Sections: snapshot, alerts, quick_wins, traffic_drops, content_decay, recommendations"),
-  },
-  async ({ output_path, days, include_sections }) => {
-    const results = await generateReport(output_path, days, include_sections);
-    return {
-      content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-    };
-  }
-);
-
-// 16. Multi-Site Dashboard
+// 15. Multi-Site Dashboard
 server.tool(
   "multi_site_dashboard",
   "Health check across multiple GSC properties in one view. Shows clicks, impressions, CTR, and position for each site with period comparison and health status. Agency essential." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX + POSITION_CAVEAT,
@@ -321,56 +279,46 @@ server.tool(
   async ({ site_urls, days }) => {
     const results = await multiSiteDashboard(site_urls, days);
     const wrapped = withMeta(results, "multi_site_dashboard", { site_urls, days });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
-// 17. Submit URL for Indexing
+// 16. Submit URL for Indexing (URL_UPDATED only)
 server.tool(
   "submit_url",
-  "Submit a URL to Google's Indexing API to request crawling and indexing. Works for notifying Google of new or updated content. Note: Google officially supports this for JobPosting/BroadcastEvent schema but processes all page types." + GUARDRAIL_SUFFIX,
+  "Submit one https URL to Google's Indexing API as URL_UPDATED. The host must be exactly allowlisted (tradylist.com or www.tradylist.com, unless GSC_ALLOWED_HOSTS overrides that). Deletion and de-indexing are not available. A per-process cap applies (GSC_MAX_URL_SUBMITS, default 50). Rejected URLs are not sent." + GUARDRAIL_SUFFIX,
   {
-    url: z.string().describe("The full URL to submit for indexing"),
-    action: z.enum(["URL_UPDATED", "URL_DELETED"]).default("URL_UPDATED").describe("URL_UPDATED for new/changed content, URL_DELETED for removed pages"),
+    url: z.string().describe("https URL on an allowlisted host"),
   },
-  async ({ url, action }) => {
-    const results = await submitUrl(url, action);
-    return {
-      content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-    };
+  async ({ url }) => {
+    const results = await submitUrl(url);
+    return toolResult(results);
   }
 );
 
-// 18. Batch Submit URLs
+// 17. Batch Submit URLs
 server.tool(
   "submit_batch",
-  "Submit up to 200 URLs to Google's Indexing API in one go. Daily quota is 200 URL notifications. Use for bulk indexing requests after publishing multiple pages or a site-wide update." + GUARDRAIL_SUFFIX,
+  "Submit https URLs to Google's Indexing API as URL_UPDATED. Every host must be allowlisted. The whole batch is rejected before any request if any URL fails the allowlist or the batch would exceed the per-process cap (GSC_MAX_URL_SUBMITS, default 50). Deletion is not available." + GUARDRAIL_SUFFIX,
   {
-    urls: z.array(z.string()).describe("Array of URLs to submit (max 200)"),
-    action: z.enum(["URL_UPDATED", "URL_DELETED"]).default("URL_UPDATED").describe("URL_UPDATED for new/changed content, URL_DELETED for removed pages"),
+    urls: z.array(z.string()).describe("https URLs on allowlisted hosts"),
   },
-  async ({ urls, action }) => {
-    const results = await submitBatch(urls, action);
-    return {
-      content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-    };
+  async ({ urls }) => {
+    const results = await submitBatch(urls);
+    return toolResult(results);
   }
 );
 
 // 19. Submit Sitemap
 server.tool(
   "submit_sitemap",
-  "Notify Google of a new or updated sitemap. Triggers Google to recrawl the sitemap and discover new pages." + GUARDRAIL_SUFFIX,
+  "Notify Google of a new or updated sitemap on an allowlisted host. The sitemap URL and the site property must pass the same host allowlist as URL submission. Counts as one submit against GSC_MAX_URL_SUBMITS. Rejected URLs are not sent." + GUARDRAIL_SUFFIX,
   {
     sitemap_url: z.string().optional().describe("Full sitemap URL (defaults to {site_url}/sitemap.xml)"),
   },
   async ({ sitemap_url }) => {
     const results = await submitSitemap(sitemap_url);
-    return {
-      content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-    };
+    return toolResult(results);
   }
 );
 
@@ -382,9 +330,7 @@ server.tool(
   async () => {
     const results = await listSitemaps();
     const wrapped = withMeta(results, "list_sitemaps", {});
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -406,14 +352,12 @@ server.tool(
     min_impressions: z.number().default(50).describe("Minimum impressions threshold"),
     row_limit: z.number().default(50).describe("Maximum rows to return"),
     order_by: z.enum(["impressions", "clicks", "position"]).default("impressions").describe("Sort field"),
-    site_url: z.string().optional().describe("Override the configured property (e.g. sc-domain:example.com or https://www.example.com/)"),
+    site_url: z.string().optional().describe("Allowlisted property override (sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/)"),
   },
   async ({ days, min_impressions, row_limit, order_by, site_url }) => {
     const results = await imageKeywordOverview(days, min_impressions, row_limit, order_by, site_url);
     const wrapped = withMeta(results, "image_keyword_overview", { days, min_impressions, row_limit, order_by, site_url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -425,14 +369,12 @@ server.tool(
     days: z.number().default(90).describe("Number of days to analyse"),
     min_impressions: z.number().default(500).describe("Minimum impressions threshold"),
     max_position: z.number().default(15).describe("Maximum position to include"),
-    site_url: z.string().optional().describe("Override the configured property (e.g. sc-domain:example.com or https://www.example.com/)"),
+    site_url: z.string().optional().describe("Allowlisted property override (sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/)"),
   },
   async ({ days, min_impressions, max_position, site_url }) => {
     const results = await imageSearchQuickWins(days, min_impressions, max_position, site_url);
     const wrapped = withMeta(results, "image_search_quick_wins", { days, min_impressions, max_position, site_url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -444,14 +386,12 @@ server.tool(
     days: z.number().default(90).describe("Number of days to analyse"),
     min_combined_impressions: z.number().default(100).describe("Minimum combined (web + image) impressions to include the query"),
     row_limit: z.number().default(50).describe("Maximum rows to return"),
-    site_url: z.string().optional().describe("Override the configured property (e.g. sc-domain:example.com or https://www.example.com/)"),
+    site_url: z.string().optional().describe("Allowlisted property override (sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/)"),
   },
   async ({ days, min_combined_impressions, row_limit, site_url }) => {
     const results = await compareWebVsImage(days, min_combined_impressions, row_limit, site_url);
     const wrapped = withMeta(results, "compare_web_vs_image", { days, min_combined_impressions, row_limit, site_url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -464,14 +404,12 @@ server.tool(
     min_impressions: z.number().default(100).describe("Minimum impressions threshold"),
     row_limit: z.number().default(50).describe("Maximum rows to return"),
     order_by: z.enum(["impressions", "clicks", "position"]).default("clicks").describe("Sort field"),
-    site_url: z.string().optional().describe("Override the configured property (e.g. sc-domain:example.com or https://www.example.com/)"),
+    site_url: z.string().optional().describe("Allowlisted property override (sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/)"),
   },
   async ({ days, min_impressions, row_limit, order_by, site_url }) => {
     const results = await imagePagesOverview(days, min_impressions, row_limit, order_by, site_url);
     const wrapped = withMeta(results, "image_pages_overview", { days, min_impressions, row_limit, order_by, site_url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -484,14 +422,12 @@ server.tool(
     min_combined_impressions: z.number().default(100).describe("Minimum combined impressions across both windows"),
     row_limit: z.number().default(50).describe("Maximum rows to return"),
     order_by: z.enum(["impressions_delta", "position_delta"]).default("impressions_delta").describe("Sort field"),
-    site_url: z.string().optional().describe("Override the configured property (e.g. sc-domain:example.com or https://www.example.com/)"),
+    site_url: z.string().optional().describe("Allowlisted property override (sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/)"),
   },
   async ({ days, min_combined_impressions, row_limit, order_by, site_url }) => {
     const results = await imageKeywordTrends(days, min_combined_impressions, row_limit, order_by, site_url);
     const wrapped = withMeta(results, "image_keyword_trends", { days, min_combined_impressions, row_limit, order_by, site_url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -504,14 +440,12 @@ server.tool(
     min_impressions: z.number().default(500).describe("Minimum impressions threshold"),
     max_clicks: z.number().default(2).describe("Maximum clicks (filter to pages stuck in the impressions-no-clicks pattern)"),
     row_limit: z.number().default(50).describe("Maximum rows to return"),
-    site_url: z.string().optional().describe("Override the configured property (e.g. sc-domain:example.com or https://www.example.com/)"),
+    site_url: z.string().optional().describe("Allowlisted property override (sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/)"),
   },
   async ({ days, min_impressions, max_clicks, row_limit, site_url }) => {
     const results = await imageImpressionsNoClicks(days, min_impressions, max_clicks, row_limit, site_url);
     const wrapped = withMeta(results, "image_impressions_no_clicks", { days, min_impressions, max_clicks, row_limit, site_url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -521,14 +455,12 @@ server.tool(
   "Image-search version of content_decay. Three 30-day windows, flags pages with a consistent decline across all three. Defaults to a lower minimum click threshold than the web equivalent because image search produces lower click volumes overall." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX + POSITION_CAVEAT,
   {
     min_period3_clicks: z.number().default(5).describe("Minimum image-search clicks in the oldest 30-day window required for a page to be considered"),
-    site_url: z.string().optional().describe("Override the configured property (e.g. sc-domain:example.com or https://www.example.com/)"),
+    site_url: z.string().optional().describe("Allowlisted property override (sc-domain:tradylist.com, https://tradylist.com/, or https://www.tradylist.com/)"),
   },
   async ({ min_period3_clicks, site_url }) => {
     const results = await imageContentDecay(min_period3_clicks, site_url);
     const wrapped = withMeta(results, "image_content_decay", { min_period3_clicks, site_url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 
@@ -541,39 +473,12 @@ server.tool(
     min_impressions: z.number().default(1).describe("Minimum impressions for a query to be listed (single-impression rows are evidence, not noise, so the default keeps them)"),
     max_rows_per_bucket: z.number().default(50).describe("Maximum rows returned per bucket; totals always cover everything"),
     include_timeline: z.boolean().default(true).describe("Include the monthly artefact timeline (one extra API call)"),
-    site_url: z.string().optional().describe("Override the configured property (e.g. sc-domain:example.com)"),
+    site_url: z.string().optional().describe("Allowlisted property override (for example sc-domain:tradylist.com)"),
   },
   async ({ days, min_impressions, max_rows_per_bucket, include_timeline, site_url }) => {
     const results = await genaiConversationQueries(days, min_impressions, max_rows_per_bucket, include_timeline, site_url);
     const wrapped = withMeta(results, "genai_conversation_queries", { days, min_impressions, max_rows_per_bucket, include_timeline, site_url });
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
-  }
-);
-
-// 29. Image Page Audit
-server.tool(
-  "image_page_audit",
-  "Fetches pages from YOUR OWN site and audits every image on them for the on-page factors that drive image-search performance: missing/empty/generic/duplicate alt text, non-descriptive filenames, missing width/height attributes, lazy loading on the LCP candidate, srcset coverage, file format and weight, intrinsic dimensions vs Google's ~250x200 indexing minimum, ImageObject and licensable schema, max-image-preview, inline background images, and the metadata inside the image files (camera EXIF and GPS that should be stripped, IPTC Creator/Copyright/Caption that should survive, XMP DigitalSourceType on AI-generated images). Feed it URLs straight from image_impressions_no_clicks or image_search_quick_wins to turn 'which pages fail' into 'why they fail'. Only fetches the URLs given; no third-party service involved. Returns a per-image findings table, page-level checks, and an ordered top_fixes list." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX,
-  {
-    urls: z.array(z.string()).min(1).max(5).describe("Page URLs to audit (1-5, from your own site)"),
-    fetch_metadata: z.boolean().default(true).describe("Also read EXIF/IPTC/XMP metadata from the image files"),
-    max_images_per_page: z.number().default(12).describe("Maximum images fetched and weighed per page (HTML checks still cover all images)"),
-    max_images_reported: z.number().default(20).describe("Maximum per-image rows returned per page"),
-  },
-  async ({ urls, fetch_metadata, max_images_per_page, max_images_reported }) => {
-    const results = await imagePageAudit(urls, fetch_metadata, max_images_per_page, max_images_reported);
-    const wrapped = withMeta(
-      results,
-      "image_page_audit",
-      { urls, fetch_metadata, max_images_per_page, max_images_reported },
-      "Live fetch of the audited pages (the user's own site)",
-      "All findings come from fetching and parsing the listed pages and image files at call time. Alt text, attributes, bytes, and dimensions are read values, not estimates. Base your analysis only on this data. An empty alt (alt=\"\") is correct for decorative images; do not report it as a defect."
-    );
-    return {
-      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
-    };
+    return toolResult(wrapped);
   }
 );
 

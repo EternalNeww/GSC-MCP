@@ -37,15 +37,19 @@ exports.submitUrl = submitUrl;
 exports.submitBatch = submitBatch;
 const googleapis_1 = require("googleapis");
 const auth_js_1 = require("../auth.js");
+const allowlist_js_1 = require("../allowlist.js");
 const oauth_js_1 = require("../oauth.js");
+const submission_cap_js_1 = require("../submission-cap.js");
 const fs = __importStar(require("fs"));
-async function getIndexingClient() {
-    const mode = (0, auth_js_1.getAuthMode)();
-    if (mode === "oauth" && (0, oauth_js_1.getScopeTier)() === "readonly") {
-        throw new Error("URL submission needs full access, but this install is in read only mode (GSC_SCOPES=readonly). " +
-            "Re-run `npx suganthan-gsc-mcp setup --reauth` and choose full access, then try again.");
+function assertIndexingEnabled() {
+    if ((0, auth_js_1.getAuthMode)() === "oauth" && (0, oauth_js_1.getScopeTier)() === "readonly") {
+        throw new Error("URL submission needs the indexing scope, which is requested only when GSC_SCOPES=submit (alias: full). " +
+            "This process is read only. Set GSC_SCOPES=submit and re-authenticate. No request was sent.");
     }
-    if (mode === "oauth") {
+}
+async function getIndexingClient() {
+    assertIndexingEnabled();
+    if ((0, auth_js_1.getAuthMode)() === "oauth") {
         const oauth2Client = await (0, oauth_js_1.authenticateWithOAuth)();
         googleapis_1.google.options({ auth: oauth2Client });
     }
@@ -56,34 +60,35 @@ async function getIndexingClient() {
         }
         const auth = new googleapis_1.google.auth.GoogleAuth({
             keyFile,
-            scopes: ["https://www.googleapis.com/auth/indexing"],
+            scopes: [oauth_js_1.INDEXING_SCOPE],
         });
         googleapis_1.google.options({ auth });
     }
     return googleapis_1.google.indexing("v3");
 }
-async function submitUrl(url, action = "URL_UPDATED") {
+const UPDATED_NOTE = "Google has been notified with URL_UPDATED. Deletion is not supported. The Indexing API officially supports JobPosting and BroadcastEvent schema types, but processes requests for all page types. Priority is not guaranteed for non-job pages.";
+async function publishUpdated(url) {
     try {
         const indexing = await getIndexingClient();
         const response = await indexing.urlNotifications.publish({
             requestBody: {
                 url,
-                type: action,
+                type: "URL_UPDATED",
             },
         });
         return {
             url,
-            type: action,
+            type: "URL_UPDATED",
             notifyTime: response.data.urlNotificationMetadata?.latestUpdate?.notifyTime || null,
             success: true,
             error: null,
-            note: "Google has been notified. The Indexing API officially supports JobPosting and BroadcastEvent schema types, but processes requests for all page types. Priority is not guaranteed for non-job pages.",
+            note: UPDATED_NOTE,
         };
     }
     catch (err) {
         return {
             url,
-            type: action,
+            type: "URL_UPDATED",
             notifyTime: null,
             success: false,
             error: err.message || String(err),
@@ -91,16 +96,26 @@ async function submitUrl(url, action = "URL_UPDATED") {
         };
     }
 }
-async function submitBatch(urls, action = "URL_UPDATED") {
-    if (urls.length > 200) {
-        throw new Error(`Google's Indexing API has a daily quota of 200 requests. You provided ${urls.length} URLs. Please reduce to 200 or fewer.`);
+async function submitUrl(url) {
+    const allowed = (0, allowlist_js_1.assertAllowedPageUrl)(url);
+    assertIndexingEnabled();
+    (0, submission_cap_js_1.reserveUrlSubmits)(1);
+    return publishUpdated(allowed);
+}
+async function submitBatch(urls) {
+    if (!Array.isArray(urls) || urls.length === 0) {
+        throw new Error("Rejected submission: no URLs provided. No request was sent.");
     }
+    if (urls.length > 200) {
+        throw new Error(`Google's Indexing API has a daily quota of 200 requests. You provided ${urls.length} URLs. Please reduce to 200 or fewer. No request was sent.`);
+    }
+    const allowed = urls.map((url) => (0, allowlist_js_1.assertAllowedPageUrl)(url));
+    assertIndexingEnabled();
+    (0, submission_cap_js_1.reserveUrlSubmits)(allowed.length);
     const results = [];
-    for (const url of urls) {
-        const result = await submitUrl(url, action);
-        results.push(result);
-        // Small delay to avoid rate limiting
-        if (urls.length > 10) {
+    for (const url of allowed) {
+        results.push(await publishUpdated(url));
+        if (allowed.length > 10) {
             await new Promise((resolve) => setTimeout(resolve, 100));
         }
     }
@@ -109,10 +124,10 @@ async function submitBatch(urls, action = "URL_UPDATED") {
     return {
         results,
         summary: {
-            total: urls.length,
+            total: allowed.length,
             succeeded,
             failed,
-            note: `Daily quota is 200 URL notifications. ${succeeded} submitted successfully, ${failed} failed.`,
+            note: `Per-process cap is ${process.env.GSC_MAX_URL_SUBMITS || "50"} URL submits (GSC_MAX_URL_SUBMITS). ${succeeded} submitted successfully, ${failed} failed. Only URL_UPDATED is sent.`,
         },
     };
 }

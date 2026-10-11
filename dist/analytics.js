@@ -4,6 +4,8 @@ exports.getDateRange = getDateRange;
 exports.getPriorDateRange = getPriorDateRange;
 exports.fetchAllRows = fetchAllRows;
 const auth_js_1 = require("./auth.js");
+const allowlist_js_1 = require("./allowlist.js");
+const untrusted_js_1 = require("./untrusted.js");
 function formatDate(date) {
     return date.toISOString().split("T")[0];
 }
@@ -36,8 +38,8 @@ function getPriorDateRange(days) {
  * Uses dataState: 'all' so data matches the GSC dashboard exactly.
  */
 async function fetchAllRows(params, siteUrlOverride) {
+    const siteUrl = (0, allowlist_js_1.assertAllowedProperty)(siteUrlOverride || (0, auth_js_1.getConfig)().siteUrl);
     const client = await (0, auth_js_1.getSearchConsoleClient)();
-    const siteUrl = siteUrlOverride || (0, auth_js_1.getConfig)().siteUrl;
     const allRows = [];
     const pageSize = params.rowLimit || 25000;
     let startRow = 0;
@@ -62,7 +64,8 @@ async function fetchAllRows(params, siteUrlOverride) {
             break;
         for (const row of rows) {
             allRows.push({
-                keys: row.keys || [],
+                // Query and page strings are untrusted text. They are copied, not evaluated.
+                keys: (row.keys || []).map((key) => (0, untrusted_js_1.asUntrustedText)(key ?? "")),
                 clicks: row.clicks || 0,
                 impressions: row.impressions || 0,
                 ctr: row.ctr || 0,

@@ -1,5 +1,8 @@
 import { getSearchConsoleClient, getConfig, getAuthMode } from "../auth.js";
+import { assertAllowedPageUrl, assertAllowedProperty } from "../allowlist.js";
 import { getScopeTier } from "../oauth.js";
+import { reserveUrlSubmits } from "../submission-cap.js";
+import { asUntrustedText } from "../untrusted.js";
 
 interface SitemapSubmitResult {
   siteUrl: string;
@@ -37,6 +40,19 @@ function sitemapPropertyCandidates(siteUrl: string): string[] {
   return [siteUrl];
 }
 
+function allowedSitemapProperties(siteUrl: string): string[] {
+  const allowed: string[] = [];
+  for (const candidate of sitemapPropertyCandidates(siteUrl)) {
+    try {
+      allowed.push(assertAllowedProperty(candidate));
+    } catch {
+      // A domain-property fallback such as www.* is skipped when that host
+      // is outside the allowlist. It is never sent to the API.
+    }
+  }
+  return allowed;
+}
+
 function defaultSitemapUrl(property: string): string {
   if (property.startsWith("sc-domain:")) {
     return `https://${property.replace("sc-domain:", "")}/sitemap.xml`;
@@ -61,24 +77,33 @@ function permissionHint(candidates: string[]): string {
 }
 
 export async function submitSitemap(sitemapUrl?: string): Promise<SitemapSubmitResult> {
+  const explicitFeed = sitemapUrl !== undefined ? assertAllowedPageUrl(sitemapUrl) : undefined;
+  const { siteUrl: configSiteUrl } = getConfig();
+  const candidates = allowedSitemapProperties(configSiteUrl);
+  if (candidates.length === 0) {
+    throw new Error(
+      `Rejected property: "${configSiteUrl}" has no allowlisted sitemap property. No request was sent.`
+    );
+  }
+
+  const feedpath = explicitFeed || assertAllowedPageUrl(defaultSitemapUrl(configSiteUrl));
+
   if (getAuthMode() === "oauth" && getScopeTier() === "readonly") {
     return {
-      siteUrl: "",
-      sitemapUrl: sitemapUrl || "",
+      siteUrl: configSiteUrl,
+      sitemapUrl: feedpath,
       success: false,
       error:
-        "Sitemap submission needs full access, but this install is in read only mode (GSC_SCOPES=readonly). " +
-        "Re-run `npx suganthan-gsc-mcp setup --reauth` and choose full access, then try again.",
+        "Sitemap submission needs GSC_SCOPES=submit. sitemaps.submit is rejected with webmasters.readonly, " +
+        "so the webmasters scope is requested only on that tier. Re-authenticate with GSC_SCOPES=submit. No request was sent.",
     };
   }
 
+  reserveUrlSubmits(1);
   const client = await getSearchConsoleClient();
-  const { siteUrl: configSiteUrl } = getConfig();
-  const candidates = sitemapPropertyCandidates(configSiteUrl);
 
   let firstError: any = null;
   for (const property of candidates) {
-    const feedpath = sitemapUrl || defaultSitemapUrl(property);
     try {
       await client.sitemaps.submit({ siteUrl: property, feedpath });
       const note = fallbackNote(property, configSiteUrl);
@@ -96,16 +121,21 @@ export async function submitSitemap(sitemapUrl?: string): Promise<SitemapSubmitR
 
   return {
     siteUrl: configSiteUrl,
-    sitemapUrl: sitemapUrl || defaultSitemapUrl(configSiteUrl),
+    sitemapUrl: feedpath,
     success: false,
     error: (firstError?.message || String(firstError)) + permissionHint(candidates),
   };
 }
 
 export async function listSitemaps(): Promise<SitemapListResult> {
-  const client = await getSearchConsoleClient();
   const { siteUrl: configSiteUrl } = getConfig();
-  const candidates = sitemapPropertyCandidates(configSiteUrl);
+  const candidates = allowedSitemapProperties(configSiteUrl);
+  if (candidates.length === 0) {
+    throw new Error(
+      `Rejected property: "${configSiteUrl}" has no allowlisted sitemap property. No request was sent.`
+    );
+  }
+  const client = await getSearchConsoleClient();
 
   let firstError: any = null;
   for (const property of candidates) {
@@ -113,14 +143,14 @@ export async function listSitemaps(): Promise<SitemapListResult> {
       const response = await client.sitemaps.list({ siteUrl: property });
 
       const sitemaps = (response.data.sitemap || []).map((s) => ({
-        path: s.path || "",
-        lastSubmitted: s.lastSubmitted || null,
+        path: asUntrustedText(s.path || ""),
+        lastSubmitted: s.lastSubmitted ? asUntrustedText(s.lastSubmitted) : null,
         isPending: s.isPending || false,
-        lastDownloaded: s.lastDownloaded || null,
+        lastDownloaded: s.lastDownloaded ? asUntrustedText(s.lastDownloaded) : null,
         warnings: Number(s.warnings) || 0,
         errors: Number(s.errors) || 0,
         contents: (s.contents || []).map((c) => ({
-          type: c.type || "unknown",
+          type: asUntrustedText(c.type || "unknown"),
           submitted: Number(c.submitted) || 0,
           indexed: Number(c.indexed) || 0,
         })),
